@@ -1,19 +1,15 @@
 '''
 An evaluator to compute the Pascal VOC-style mean average precision (both the pre-2010
 and post-2010 algorithm versions) of a given Keras SSD model on a given dataset.
-
 Copyright (C) 2018 Pierluigi Ferrari
-
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
-
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
@@ -37,12 +33,9 @@ from bounding_box_utils.bounding_box_utils import iou
 class Evaluator:
     '''
     Computes the mean average precision of the given Keras SSD model on the given dataset.
-
     Can compute the Pascal-VOC-style average precision in both the pre-2010 (k-point sampling)
     and post-2010 (integration) algorithm versions.
-
     Optionally also returns the averages precisions, precisions, and recalls.
-
     The algorithm is identical to the official Pascal VOC 2007 detection evaluation algorithm
     in its default settings, but can be cusomized in a number of ways.
     '''
@@ -102,7 +95,7 @@ class Evaluator:
                  data_generator_mode='resize',
                  round_confidences=False,
                  matching_iou_threshold=0.5,
-                 include_border_pixels=True,
+                 border_pixels='include',
                  sorting_algorithm='quicksort',
                  average_precision_mode='sample',
                  num_recall_points=11,
@@ -118,12 +111,9 @@ class Evaluator:
                  decoding_normalize_coords=True):
         '''
         Computes the mean average precision of the given Keras SSD model on the given dataset.
-
         Optionally also returns the averages precisions, precisions, and recalls.
-
         All the individual steps of the overall evaluation algorithm can also be called separately
         (check out the other methods of this class), but this runs the overall algorithm all at once.
-
         Arguments:
             img_height (int): The input image height for the model.
             img_width (int): The input image width for the model.
@@ -136,9 +126,11 @@ class Evaluator:
                 confidences will be rounded to. If `False`, the confidences will not be rounded.
             matching_iou_threshold (float, optional): A prediction will be considered a true positive if it has a Jaccard overlap
                 of at least `matching_iou_threshold` with any ground truth bounding box of the same class.
-            include_border_pixels (bool, optional): Whether the border pixels of the bounding boxes belong to them or not.
-                For example, if a bounding box has an `xmax` pixel value of 367, this determines whether the pixels with
-                x-value 367 belong to the bounding box or not.
+            border_pixels (str, optional): How to treat the border pixels of the bounding boxes.
+                Can be 'include', 'exclude', or 'half'. If 'include', the border pixels belong
+                to the boxes. If 'exclude', the border pixels do not belong to the boxes.
+                If 'half', then one of each of the two horizontal and vertical borders belong
+                to the boxex, but not the other.
             sorting_algorithm (str, optional): Which sorting algorithm the matching algorithm should use. This argument accepts
                 any valid sorting algorithm for Numpy's `argsort()` function. You will usually want to choose between 'quicksort'
                 (fastest and most memory efficient, but not stable) and 'mergesort' (slight slower and less memory efficient, but stable).
@@ -179,7 +171,6 @@ class Evaluator:
             decoding_normalize_coords (bool, optional): Only relevant if the model is in 'training' mode. Set to `True` if the model
                 outputs relative coordinates. Do not set this to `True` if the model already outputs absolute coordinates,
                 as that would result in incorrect coordinates.
-
         Returns:
             A float, the mean average precision, plus any optional returns specified in the arguments.
         '''
@@ -197,7 +188,7 @@ class Evaluator:
                                 decoding_top_k=decoding_top_k,
                                 decoding_pred_coords=decoding_pred_coords,
                                 decoding_normalize_coords=decoding_normalize_coords,
-                                decoding_include_border_pixels=include_border_pixels,
+                                decoding_border_pixels=border_pixels,
                                 round_confidences=round_confidences,
                                 verbose=verbose,
                                 ret=False)
@@ -216,7 +207,7 @@ class Evaluator:
 
         self.match_predictions(ignore_neutral_boxes=ignore_neutral_boxes,
                                matching_iou_threshold=matching_iou_threshold,
-                               include_border_pixels=include_border_pixels,
+                               border_pixels=border_pixels,
                                sorting_algorithm=sorting_algorithm,
                                verbose=verbose,
                                ret=False)
@@ -267,13 +258,12 @@ class Evaluator:
                            decoding_top_k=200,
                            decoding_pred_coords='centroids',
                            decoding_normalize_coords=True,
-                           decoding_include_border_pixels=True,
+                           decoding_border_pixels='include',
                            round_confidences=False,
                            verbose=True,
                            ret=False):
         '''
         Runs predictions for the given model over the entire dataset given by `data_generator`.
-
         Arguments:
             img_height (int): The input image height for the model.
             img_width (int): The input image width for the model.
@@ -302,7 +292,6 @@ class Evaluator:
                 confidences will be rounded to. If `False`, the confidences will not be rounded.
             verbose (bool, optional): If `True`, will print out the progress during runtime.
             ret (bool, optional): If `True`, returns the predictions.
-
         Returns:
             None by default. Optionally, a nested list containing the predictions for each class.
         '''
@@ -390,7 +379,7 @@ class Evaluator:
                                            normalize_coords=decoding_normalize_coords,
                                            img_height=img_height,
                                            img_width=img_width,
-                                           include_border_pixels=decoding_include_border_pixels)
+                                           border_pixels=decoding_border_pixels)
             else:
                 # Filter out the all-zeros dummy elements of `y_pred`.
                 y_pred_filtered = []
@@ -431,7 +420,6 @@ class Evaluator:
                                  verbose=True):
         '''
         Writes the predictions for all classes to separate text files according to the Pascal VOC results format.
-
         Arguments:
             classes (list, optional): `None` or a list of strings containing the class names of all classes in the dataset,
                 including some arbitrary name for the background class. This list will be used to name the output text files.
@@ -442,7 +430,6 @@ class Evaluator:
                 be the respective class name followed by the `.txt` file extension. This string is also how you specify the directory
                 in which the results are to be saved.
             verbose (bool, optional): If `True`, will print out the progress during runtime.
-
         Returns:
             None.
         '''
@@ -482,7 +469,6 @@ class Evaluator:
                              ret=False):
         '''
         Counts the number of ground truth boxes for each class across the dataset.
-
         Arguments:
             ignore_neutral_boxes (bool, optional): In case the data generator provides annotations indicating whether a ground truth
                 bounding box is supposed to either count or be neutral for the evaluation, this argument decides what to do with these
@@ -490,7 +476,6 @@ class Evaluator:
                 be counted.
             verbose (bool, optional): If `True`, will print out the progress during runtime.
             ret (bool, optional): If `True`, returns the list of counts.
-
         Returns:
             None by default. Optionally, a list containing a count of the number of ground truth boxes for each class across the
             entire dataset.
@@ -540,15 +525,13 @@ class Evaluator:
     def match_predictions(self,
                           ignore_neutral_boxes=True,
                           matching_iou_threshold=0.5,
-                          include_border_pixels=True,
+                          border_pixels='include',
                           sorting_algorithm='quicksort',
                           verbose=True,
                           ret=False):
         '''
         Matches predictions to ground truth boxes.
-
         Note that `predict_on_dataset()` must be called before calling this method.
-
         Arguments:
             ignore_neutral_boxes (bool, optional): In case the data generator provides annotations indicating whether a ground truth
                 bounding box is supposed to either count or be neutral for the evaluation, this argument decides what to do with these
@@ -557,9 +540,11 @@ class Evaluator:
                 annotated as "difficult" in the Pascal VOC datasets, which are usually treated as neutral for the evaluation.
             matching_iou_threshold (float, optional): A prediction will be considered a true positive if it has a Jaccard overlap
                 of at least `matching_iou_threshold` with any ground truth bounding box of the same class.
-            include_border_pixels (bool, optional): Whether the border pixels of the bounding boxes belong to them or not.
-                For example, if a bounding box has an `xmax` pixel value of 367, this determines whether the pixels with
-                x-value 367 belong to the bounding box or not.
+            border_pixels (str, optional): How to treat the border pixels of the bounding boxes.
+                Can be 'include', 'exclude', or 'half'. If 'include', the border pixels belong
+                to the boxes. If 'exclude', the border pixels do not belong to the boxes.
+                If 'half', then one of each of the two horizontal and vertical borders belong
+                to the boxex, but not the other.
             sorting_algorithm (str, optional): Which sorting algorithm the matching algorithm should use. This argument accepts
                 any valid sorting algorithm for Numpy's `argsort()` function. You will usually want to choose between 'quicksort'
                 (fastest and most memory efficient, but not stable) and 'mergesort' (slight slower and less memory efficient, but stable).
@@ -568,7 +553,6 @@ class Evaluator:
                 even if you choose 'quicksort' (but no guarantees).
             verbose (bool, optional): If `True`, will print out the progress during runtime.
             ret (bool, optional): If `True`, returns the true and false positives.
-
         Returns:
             None by default. Optionally, four nested lists containing the true positives, false positives, cumulative true positives,
             and cumulative false positives for each class.
@@ -680,7 +664,7 @@ class Evaluator:
                                boxes2=pred_box,
                                coords='corners',
                                mode='element-wise',
-                               include_border_pixels=include_border_pixels)
+                               border_pixels=border_pixels)
 
                 # For each detection, match the ground truth box with the highest overlap.
                 # It's possible that the same ground truth box will be matched to multiple
@@ -738,13 +722,10 @@ class Evaluator:
     def compute_precision_recall(self, verbose=True, ret=False):
         '''
         Computes the precisions and recalls for all classes.
-
         Note that `match_predictions()` must be called before calling this method.
-
         Arguments:
             verbose (bool, optional): If `True`, will print out the progress during runtime.
             ret (bool, optional): If `True`, returns the precisions and recalls.
-
         Returns:
             None by default. Optionally, two nested lists containing the cumulative precisions and recalls for each class.
         '''
@@ -782,12 +763,9 @@ class Evaluator:
     def compute_average_precisions(self, mode='sample', num_recall_points=11, verbose=True, ret=False):
         '''
         Computes the average precision for each class.
-
         Can compute the Pascal-VOC-style average precision in both the pre-2010 (k-point sampling)
         and post-2010 (integration) algorithm versions.
-
         Note that `compute_precision_recall()` must be called before calling this method.
-
         Arguments:
             mode (str, optional): Can be either 'sample' or 'integrate'. In the case of 'sample', the average precision will be computed
                 according to the Pascal VOC formula that was used up until VOC 2009, where the precision will be sampled for `num_recall_points`
@@ -800,10 +778,8 @@ class Evaluator:
                 precision will be computed. 11 points is the value used in the official Pascal VOC pre-2010 detection evaluation algorithm.
             verbose (bool, optional): If `True`, will print out the progress during runtime.
             ret (bool, optional): If `True`, returns the average precisions.
-
         Returns:
             None by default. Optionally, a list containing average precision for each class.
-
         References:
             http://host.robots.ox.ac.uk/pascal/VOC/voc2012/htmldoc/devkit_doc.html#sec:ap
         '''
@@ -885,12 +861,9 @@ class Evaluator:
     def compute_mean_average_precision(self, ret=True):
         '''
         Computes the mean average precision over all classes.
-
         Note that `compute_average_precisions()` must be called before calling this method.
-
         Arguments:
             ret (bool, optional): If `True`, returns the mean average precision.
-
         Returns:
             A float, the mean average precision, by default. Optionally, None.
         '''
